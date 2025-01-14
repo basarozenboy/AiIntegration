@@ -1,67 +1,77 @@
-﻿using System;
-using System.Net.Http;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
+﻿using AIOutlierDetection;
+using FlightRouteOptimizer;
+using static FlightRouteOptimizer.OllamaService;
 
 class Program
 {
     static async Task Main(string[] args)
     {
-        // Ollama API URL'si ve model adı
-        string ollamaUrl = "http://localhost:11434/api/chat"; // Ollama'nın varsayılan localhost URL'si
-        string modelName = "llama3.2:1b"; // Kullanılacak model
-
-        // Kullanıcıdan alınacak rota (örnek veri)
-        var route = new[]
+        var service = new OllamaService();
+        var request = new RouteRequest
         {
-            new { x = 5.0, y = 3.0 },
-            new { x = 2.0, y = 1.0 },
-            new { x = 8.0, y = 6.0 },
-            new { x = 4.0, y = 4.0 }
+            Points = new List<RoutePoint>
+            {
+                new RoutePoint { Latitude = 41.0082, Longitude = 28.9784, Altitude = 1000 },
+                new RoutePoint { Latitude = 39.9334, Longitude = 32.8597, Altitude = 1500 }
+            },
+            Constraints = new Dictionary<string, object>
+            {
+                { "maxAltitude", 2000 },
+                { "minAltitude", 500 }
+            }
         };
 
-        // Llama3.2:1b ile rota optimizasyonu
-        var optimizedRoute = await OptimizeRouteAsync(ollamaUrl, modelName, route);
+        //var optimizedRoute = await service.OptimizeRouteAsync(request);
 
-        // Sonuçları yazdır
-        Console.WriteLine("Düzeltilmiş Rota:");
-        Console.WriteLine(JsonSerializer.Serialize(optimizedRoute, new JsonSerializerOptions { WriteIndented = true }));
-    }
+        // Detector örneği oluştur
+        var detector = new OllamaOutlierDetector();
 
-    static async Task<object> OptimizeRouteAsync(string apiUrl, string modelName, object route)
-    {
-        using var httpClient = new HttpClient();
-
-        // Ollama'ya gönderilecek istek
-        var payload = new
+        // Örnek veri oluştur
+        var data = new List<OllamaOutlierDetector.Point>
         {
-            model = modelName,
-            prompt = $"Optimize this flight route: {JsonSerializer.Serialize(route)}"
+            new OllamaOutlierDetector.Point
+            {
+                Timestamp = DateTime.Now.AddHours(-4),
+                Value = 10.5
+            },
+            new OllamaOutlierDetector.Point
+            {
+                Timestamp = DateTime.Now.AddHours(-3),
+                Value = 11.2
+            },
+            new OllamaOutlierDetector.Point
+            {
+                Timestamp = DateTime.Now.AddHours(-2),
+                Value = 150.0  // Muhtemel outlier
+            },
+            new OllamaOutlierDetector.Point
+            {
+                Timestamp = DateTime.Now.AddHours(-1),
+                Value = 10.8
+            }
         };
 
-        var requestContent = new StringContent(
-            JsonSerializer.Serialize(payload),
-            Encoding.UTF8,
-            "application/json"
-        );
-
-        try
+        // Opsiyonel parametreler
+        var parameters = new Dictionary<string, object>
         {
-            // POST isteği gönder
-            var response = await httpClient.PostAsync(apiUrl, requestContent);
-            response.EnsureSuccessStatusCode();
+            { "sensitivityThreshold", 0.95 },
+            { "minimumAnomalyScore", 0.7 }
+        };
 
-            // Yanıtı işle
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<dynamic>(responseContent);
+        // Outlier tespiti yap
+        var result = await detector.DetectOutliersAsync(data, parameters);
 
-            return result;
-        }
-        catch (Exception ex)
+        // Sonuçları görüntüle
+        //Console.WriteLine($"Analiz özeti: {result.AnalysisSummary}");
+
+        foreach (var point in result.Points)
         {
-            Console.WriteLine($"Hata: {ex.Message}");
-            return null;
+            Console.WriteLine($"Timestamp: {point.Timestamp}");
+            Console.WriteLine($"Value: {point.Value}");
+            Console.WriteLine($"Is Outlier: {point.IsOutlier}");
+            Console.WriteLine($"Anomaly Score: {point.AnomalyScore:F2}");
+            Console.WriteLine($"Explanation: {point.Explanation}");
+            Console.WriteLine();
         }
     }
 }
