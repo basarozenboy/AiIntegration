@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AIOutlierDetection
 {
@@ -45,10 +46,23 @@ namespace AIOutlierDetection
                 var jsonDocument = JsonDocument.Parse(responseContent);
                 var responseVal = jsonDocument.RootElement.GetProperty("response").ToString();
 
-                var ollamaResponse = JsonSerializer.Deserialize<Root>(responseVal);
+                int startIndex = responseVal.IndexOf("{");
+                int endIndex = responseVal.LastIndexOf("}");
+
+                if (startIndex != -1 && endIndex != -1)
+                {
+                    string jsonString = responseVal.Substring(startIndex, endIndex - startIndex + 1);
+                    string cleanedInput = jsonString.Replace("`", "");
+                    cleanedInput = jsonString.Replace(" ", "");
+                    cleanedInput = jsonString.Replace("\n", "");
+                    cleanedInput = jsonString.Replace("\\", "");
+                    cleanedInput = Regex.Unescape(cleanedInput.Trim('"'));
+                    var ollamaResponse = JsonSerializer.Deserialize<Response>(cleanedInput);
+                    return ParseAIResponse(data, ollamaResponse);
+                }
 
                 // AI yanıtını işle
-                return ParseAIResponse(data, ollamaResponse.Response);
+                return null;
             }
             catch (Exception ex)
             {
@@ -145,7 +159,7 @@ namespace AIOutlierDetection
                 var stdDev = CalculateStandardDeviation(data.Select(p => p.Value).ToList());
                 var zScore = Math.Abs((point.Value - mean) / stdDev);
 
-                point.AnomalyScore = Math.Min(1, zScore / 3);
+                point.AnomalyScore = (int)Math.Min(1, zScore / 3);
                 point.IsOutlier = zScore > 3;
                 point.Explanation = point.IsOutlier ? "Significant deviation from mean" : "Normal range";
             }
@@ -170,10 +184,10 @@ namespace AIOutlierDetection
 
         public class Point
         {
-            public DateTime Timestamp { get; set; }
+            public string Timestamp { get; set; }
             public double Value { get; set; }
             public bool IsOutlier { get; set; }
-            public double AnomalyScore { get; set; }
+            public int AnomalyScore { get; set; }
             public string Explanation { get; set; }
         }
 
@@ -189,15 +203,6 @@ namespace AIOutlierDetection
             public List<Point> Points { get; set; }
             public string Summary { get; set; }
             public Statistics Statistics { get; set; }
-        }
-
-        public class Root
-        {
-            public string Model { get; set; }
-            public string CreatedAt { get; set; }
-            public Response Response { get; set; }
-            public bool Done { get; set; }
-            public string DoneReason { get; set; }
         }
     }
 }

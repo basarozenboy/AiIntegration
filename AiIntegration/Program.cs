@@ -31,22 +31,22 @@ class Program
         {
             new OllamaOutlierDetector.Point
             {
-                Timestamp = DateTime.Now.AddHours(-4),
+                Timestamp = DateTime.Now.AddHours(-4).ToString(),
                 Value = 10.5
             },
             new OllamaOutlierDetector.Point
             {
-                Timestamp = DateTime.Now.AddHours(-3),
+                Timestamp = DateTime.Now.AddHours(-3).ToString(),
                 Value = 11.2
             },
             new OllamaOutlierDetector.Point
             {
-                Timestamp = DateTime.Now.AddHours(-2),
+                Timestamp = DateTime.Now.AddHours(-2).ToString(),
                 Value = 150.0  // Muhtemel outlier
             },
             new OllamaOutlierDetector.Point
             {
-                Timestamp = DateTime.Now.AddHours(-1),
+                Timestamp = DateTime.Now.AddHours(-1).ToString(),
                 Value = 10.8
             }
         };
