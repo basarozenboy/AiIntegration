@@ -6,23 +6,6 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        var service = new OllamaService();
-        var request = new RouteRequest
-        {
-            Points = new List<RoutePoint>
-            {
-                new RoutePoint { Latitude = 41.0082, Longitude = 28.9784, Altitude = 1000 },
-                new RoutePoint { Latitude = 39.9334, Longitude = 32.8597, Altitude = 1500 }
-            },
-            Constraints = new Dictionary<string, object>
-            {
-                { "maxAltitude", 2000 },
-                { "minAltitude", 500 }
-            }
-        };
-
-        //var optimizedRoute = await service.OptimizeRouteAsync(request);
-
         // Detector örneği oluştur
         var detector = new OllamaOutlierDetector();
 

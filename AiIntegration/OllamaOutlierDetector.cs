@@ -1,6 +1,5 @@
 ﻿using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace AIOutlierDetection
 {
@@ -52,8 +51,7 @@ namespace AIOutlierDetection
                 if (startIndex != -1 && endIndex != -1)
                 {
                     string jsonString = responseVal.Substring(startIndex, endIndex - startIndex + 1);
-                    var ollamaResponse = JsonSerializer.Deserialize<Response>(jsonString);
-                    return ParseAIResponse(data, ollamaResponse);
+                    return JsonSerializer.Deserialize<Response>(jsonString);
                 }
 
                 // AI yanıtını işle
@@ -110,71 +108,6 @@ namespace AIOutlierDetection
             promptBuilder.AppendLine("\nPlease return only json string, do not explain anything.");
 
             return promptBuilder.ToString();
-        }
-
-        private Response ParseAIResponse(List<Point> originalData, Response result)
-        {
-            try
-            {
-                // Orijinal veriyle AI sonuçlarını birleştir
-                if (result?.Points != null)
-                {
-                    for (int i = 0; i < Math.Min(originalData.Count, result.Points.Count); i++)
-                    {
-                        originalData[i].IsOutlier = result.Points[i].IsOutlier;
-                        originalData[i].AnomalyScore = result.Points[i].AnomalyScore;
-                        originalData[i].Explanation = result.Points[i].Explanation;
-                    }
-                }
-
-                return new Response
-                {
-                    Points = originalData,
-                    //AnalysisSummary = result?.AnalysisSummary,
-                    //Statistics = result?.Statistics ?? new Dictionary<string, object>()
-                };
-            }
-            catch
-            {
-                // JSON parse başarısız olursa basit text parsing dene
-                return CreateBasicDetectionResult(originalData);
-            }
-        }
-
-        private Response CreateBasicDetectionResult(List<Point> data)
-        {
-            // Basit metin analizi yaparak sonuç oluştur
-            var summary = new StringBuilder();
-            var statistics = new Dictionary<string, object>();
-
-            foreach (var point in data)
-            {
-                // Değerin ortalamadan uzaklığına göre basit bir anomali skoru hesapla
-                var mean = data.Average(p => p.Value);
-                var stdDev = CalculateStandardDeviation(data.Select(p => p.Value).ToList());
-                var zScore = Math.Abs((double)((point.Value - mean) / stdDev));
-
-                point.AnomalyScore = (int)Math.Min(1, zScore / 3);
-                point.IsOutlier = zScore > 3;
-                point.Explanation = (bool)point.IsOutlier ? "Significant deviation from mean" : "Normal range";
-            }
-
-            return new Response
-            {
-                Points = data,
-                //AnalysisSummary = "Basic statistical analysis performed",
-                //Statistics = new Dictionary<string, object>
-                //{
-                //    { "outlierCount", data.Count(p => p.IsOutlier) }
-                //}
-            };
-        }
-
-        private double? CalculateStandardDeviation(List<double?> values)
-        {
-            double? mean = values.Average();
-            double? sumSquares = values.Sum(x => Math.Pow((double)(x - mean), 2));
-            return Math.Sqrt((double)(sumSquares / (values.Count - 1)));
         }
 
         public class Point
