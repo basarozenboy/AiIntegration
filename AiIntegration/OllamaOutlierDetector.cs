@@ -52,12 +52,7 @@ namespace AIOutlierDetection
                 if (startIndex != -1 && endIndex != -1)
                 {
                     string jsonString = responseVal.Substring(startIndex, endIndex - startIndex + 1);
-                    string cleanedInput = jsonString.Replace("`", "");
-                    cleanedInput = jsonString.Replace(" ", "");
-                    cleanedInput = jsonString.Replace("\n", "");
-                    cleanedInput = jsonString.Replace("\\", "");
-                    cleanedInput = Regex.Unescape(cleanedInput.Trim('"'));
-                    var ollamaResponse = JsonSerializer.Deserialize<Response>(cleanedInput);
+                    var ollamaResponse = JsonSerializer.Deserialize<Response>(jsonString);
                     return ParseAIResponse(data, ollamaResponse);
                 }
 
@@ -77,8 +72,7 @@ namespace AIOutlierDetection
             promptBuilder.AppendLine("Provide the following in your analysis:");
             promptBuilder.AppendLine("1. For each point, determine if it's an outlier");
             promptBuilder.AppendLine("2. Assign an anomaly score (0-1) to each point");
-            promptBuilder.AppendLine("3. Provide a brief explanation for each outlier");
-            promptBuilder.AppendLine("4. Include summary statistics");
+            promptBuilder.AppendLine("3. Include summary statistics");
             promptBuilder.AppendLine("\nData points:");
 
             foreach (var point in data)
@@ -97,22 +91,23 @@ namespace AIOutlierDetection
 
             promptBuilder.AppendLine("\nPlease format your response as JSON with the following structure:");
             promptBuilder.AppendLine(@"{
-                ""points"": [
+                ""Points"": [
                     {
-                        ""timestamp"": ""...'',
-                        ""value"": number,
-                        ""isOutlier"": boolean,
-                        ""anomalyScore"": number,
-                        ""explanation"": ""...""
+                        ""Timestamp"": ""...'',
+                        ""Value"": double,
+                        ""IsOutlier"": boolean,
+                        ""AnomalyScore"": int,
+                        ""Explanation"": ""...""
                     }
                 ],
-                ""summary"": ""...'',
-                ""statistics"": {
-                    ""mean"": number,
-                    ""stdDev"": number,
-                    ""outlierCount"": number
+                ""Summary"": ""...'',
+                ""Statistics"": {
+                    ""Mean"": double,
+                    ""StdDev"": double,
+                    ""OutlierCount"": int
                 }
             }");
+            promptBuilder.AppendLine("\nPlease return only json string, do not explain anything.");
 
             return promptBuilder.ToString();
         }
@@ -157,11 +152,11 @@ namespace AIOutlierDetection
                 // Değerin ortalamadan uzaklığına göre basit bir anomali skoru hesapla
                 var mean = data.Average(p => p.Value);
                 var stdDev = CalculateStandardDeviation(data.Select(p => p.Value).ToList());
-                var zScore = Math.Abs((point.Value - mean) / stdDev);
+                var zScore = Math.Abs((double)((point.Value - mean) / stdDev));
 
                 point.AnomalyScore = (int)Math.Min(1, zScore / 3);
                 point.IsOutlier = zScore > 3;
-                point.Explanation = point.IsOutlier ? "Significant deviation from mean" : "Normal range";
+                point.Explanation = (bool)point.IsOutlier ? "Significant deviation from mean" : "Normal range";
             }
 
             return new Response
@@ -175,34 +170,34 @@ namespace AIOutlierDetection
             };
         }
 
-        private double CalculateStandardDeviation(List<double> values)
+        private double? CalculateStandardDeviation(List<double?> values)
         {
-            double mean = values.Average();
-            double sumSquares = values.Sum(x => Math.Pow(x - mean, 2));
-            return Math.Sqrt(sumSquares / (values.Count - 1));
+            double? mean = values.Average();
+            double? sumSquares = values.Sum(x => Math.Pow((double)(x - mean), 2));
+            return Math.Sqrt((double)(sumSquares / (values.Count - 1)));
         }
 
         public class Point
         {
-            public string Timestamp { get; set; }
-            public double Value { get; set; }
-            public bool IsOutlier { get; set; }
-            public int AnomalyScore { get; set; }
-            public string Explanation { get; set; }
+            public string? Timestamp { get; set; }
+            public double? Value { get; set; }
+            public bool? IsOutlier { get; set; }
+            public int? AnomalyScore { get; set; }
+            public string? Explanation { get; set; }
         }
 
         public class Statistics
         {
-            public double Mean { get; set; }
-            public double StdDev { get; set; }
-            public int OutlierCount { get; set; }
+            public double? Mean { get; set; }
+            public double? StdDev { get; set; }
+            public int? OutlierCount { get; set; }
         }
 
         public class Response
         {
-            public List<Point> Points { get; set; }
-            public string Summary { get; set; }
-            public Statistics Statistics { get; set; }
+            public List<Point>? Points { get; set; }
+            public string? Summary { get; set; }
+            public Statistics? Statistics { get; set; }
         }
     }
 }
